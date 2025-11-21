@@ -126,36 +126,38 @@ class WR_CPT_Import_Runner {
         $row = wp_parse_args( $row, $defaults );
 
         // ---------------------------
-        // CONTENT BUILDER (FINAL V2)
+        // CONTENT BUILDER (Block-based)
         // ---------------------------
 
-        $content  = '';
+        /**
+         * NEW SYSTEM — Gutenberg Block-Based Content Builder
+         * Creates 3 blocks:
+         * 1) Paragraph block → product_description
+         * 2) Shortcode block → audio_shorth_code
+         * 3) Shortcode block → pdf_player_shorth_code
+         */
 
-        // Title (WordPress zaten title olarak kaydediyor, o yüzden sadece içerik istiyorsak kapatabiliriz)
-        // $content .= '<h1>' . esc_html($row['product_title']) . '</h1>' . "\n\n";
+        $blocks = '';
 
-        // Product Description
+        // 1) Description Block
         if ( ! empty( $row['product_description'] ) ) {
-            $content .= wp_kses_post( $row['product_description'] ) . "\n\n";
+            $desc    = wp_kses_post( $row['product_description'] );
+            $blocks .= "<!-- wp:paragraph -->\n{$desc}\n<!-- /wp:paragraph -->\n\n";
         }
 
-        // Spacing before players (prevent overlay under featured image)
-        $content .= "<div style='margin-top:60px'></div>\n\n";
-
-        // AUDIO PLAYER SHORTCODE
+        // 2) Audio Player Shortcode Block
         if ( ! empty( $row['audio_shorth_code'] ) ) {
-            $content .= trim( $row['audio_shorth_code'] ) . "\n\n";
+            $audio   = trim( $row['audio_shorth_code'] );
+            $blocks .= "<!-- wp:shortcode -->\n{$audio}\n<!-- /wp:shortcode -->\n\n";
         }
 
-        // Extra spacing before PDF player
-        $content .= "<div style='margin-top:40px'></div>\n\n";
-
-        // PDF PLAYER SHORTCODE – ✔ DOĞRU CSV KEY
+        // 3) PDF Player Shortcode Block
         if ( ! empty( $row['pdf_player_shorth_code'] ) ) {
-            $content .= trim( $row['pdf_player_shorth_code'] ) . "\n\n";
+            $pdf     = trim( $row['pdf_player_shorth_code'] );
+            $blocks .= "<!-- wp:shortcode -->\n{$pdf}\n<!-- /wp:shortcode -->\n\n";
         }
 
-        return $content;
+        return $blocks;
     }
 
     /**
