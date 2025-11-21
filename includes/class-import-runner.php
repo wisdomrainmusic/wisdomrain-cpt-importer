@@ -125,25 +125,22 @@ class WR_CPT_Import_Runner {
 
         $row = wp_parse_args( $row, $defaults );
 
-        $image_html = '';
+        $content  = '';
 
-        if ( ! empty( $row['_image_id'] ) ) {
-            $image_html = wp_get_attachment_image(
-                $row['_image_id'],
-                'large',
-                false,
-                [
-                    'class' => 'wr-cover-image',
-                ]
-            );
+        $content .= '<h1>' . esc_html( $row['product_title'] ) . '</h1>' . "\n\n";
+
+        // Description
+        $content .= wp_kses_post( $row['product_description'] ) . "\n\n";
+
+        // AUDIO SHORTCODE
+        if ( ! empty( $row['audio_shorth_code'] ) ) {
+            $content .= trim( $row['audio_shorth_code'] ) . "\n\n";
         }
 
-        $content  = '';
-        $content .= '<h1>' . esc_html( $row['product_title'] ) . '</h1>' . "\n\n";
-        $content .= $image_html . "\n\n";
-        $content .= wp_kses_post( $row['product_description'] ) . "\n\n";
-        $content .= $row['audio_shorth_code'] . "\n\n";
-        $content .= $row['pdf_player_shortcode'] . "\n\n";
+        // PDF SHORTCODE
+        if ( ! empty( $row['pdf_player_shortcode'] ) ) {
+            $content .= trim( $row['pdf_player_shortcode'] ) . "\n\n";
+        }
 
         return $content;
     }
@@ -164,20 +161,8 @@ class WR_CPT_Import_Runner {
         // 2) Slug override
         $post_slug = ! empty( $row['slug'] ) ? sanitize_title( $row['slug'] ) : sanitize_title( $row['product_title'] );
 
-        // 3) Construct content (with featured image HTML)
-        $image_html = '';
-        if ( ! empty( $row['_image_id'] ) ) {
-            $image_html = wp_get_attachment_image( $row['_image_id'], 'large', false, [
-                'class' => 'wr-cover-image',
-            ] );
-        }
-
-        $content  = '';
-        $content .= '<h1>' . esc_html( $row['product_title'] ) . '</h1>' . "\n\n";
-        $content .= $image_html . "\n\n";
-        $content .= wp_kses_post( $row['product_description'] ) . "\n\n";
-        $content .= $row['audio_shorth_code'] . "\n\n";
-        $content .= $row['pdf_player_shortcode'] . "\n\n";
+        // 3) Construct content (without inline featured image)
+        $content = $this->build_content( $row );
 
         // 4) Insert post
         $post_id = wp_insert_post( [
