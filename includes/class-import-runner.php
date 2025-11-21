@@ -5,7 +5,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once WR_CPT_IMPORTER_PATH . 'includes/class-taxonomy-mapper.php';
-require_once WR_CPT_IMPORTER_PATH . 'includes/class-image-handler.php';
 
 class WR_CPT_Import_Runner {
     public function parse_csv( $file_path ) {
@@ -18,7 +17,6 @@ class WR_CPT_Import_Runner {
         $header = [];
 
         $mapper         = new WR_CPT_Mapper();
-        $image_handler  = new WR_CPT_Image_Handler();
 
         if ( ( $handle = fopen( $file_path, 'r' ) ) !== false ) {
 
@@ -71,13 +69,6 @@ class WR_CPT_Import_Runner {
                         // Kaydetmeye hazırlıyoruz
                         $row['_taxonomy_terms'] = $terms_to_assign;
                     }
-
-                    $attachment_id = $image_handler->download_and_attach(
-                        isset( $row['product_image'] ) ? trim( $row['product_image'] ) : '',
-                        0 // henüz post yok, sonradan set edeceğiz
-                    );
-
-                    $row['_image_id'] = $attachment_id;
 
                     $rows[] = $row;
                 }
@@ -137,33 +128,47 @@ class WR_CPT_Import_Runner {
          * 3) Shortcode block → pdf_player_shorth_code
          */
 
-        $blocks = '';
+        $blocks = [];
 
         // 1) Description Block
         if ( ! empty( $row['product_description'] ) ) {
-            $desc    = wp_kses_post( $row['product_description'] );
-            $blocks .= "<!-- wp:paragraph -->\n{$desc}\n<!-- /wp:paragraph -->\n\n";
+            $blocks[] = "<!-- wp:paragraph -->{$row['product_description']}<!-- /wp:paragraph -->";
         }
 
         // 2) Audio Player Shortcode Block
         if ( ! empty( $row['audio_shorth_code'] ) ) {
-            $audio   = trim( $row['audio_shorth_code'] );
-            $blocks .= "<!-- wp:shortcode -->\n{$audio}\n<!-- /wp:shortcode -->\n\n";
+            $audio     = trim( $row['audio_shorth_code'] );
+            $blocks[] = "<!-- wp:shortcode -->{$audio}<!-- /wp:shortcode -->";
         }
 
         // 3) PDF Player Shortcode Block
         if ( ! empty( $row['pdf_player_shorth_code'] ) ) {
             $pdf     = trim( $row['pdf_player_shorth_code'] );
-            $blocks .= "<!-- wp:shortcode -->\n{$pdf}\n<!-- /wp:shortcode -->\n\n";
+            $blocks[] = "<!-- wp:shortcode -->{$pdf}<!-- /wp:shortcode -->";
         }
 
-        return $blocks;
+        return implode( "\n\n", $blocks );
     }
 
     /**
      * Create a new post from a prepared CSV row.
      */
     public function create_post_from_row( $row ) {
+
+        $title           = wr_clean( $row['product_title'] ?? '' );
+        $description     = wr_clean( $row['product_description'] ?? '' );
+        $short_desc      = wr_clean( $row['short_description'] ?? '' );
+
+        $audio_shortcode = trim( $row['audio_shorth_code'] ?? '' );
+        $pdf_shortcode   = trim( $row['pdf_player_shorth_code'] ?? '' );
+
+        $seo_title     = sanitize_text_field( $row['seo_title'] ?? '' );
+        $seo_desc      = sanitize_text_field( $row['seo_description'] ?? '' );
+        $focus_keyword = sanitize_text_field( $row['focus_keyword'] ?? '' );
+
+        $group_id = sanitize_text_field( $row['group_id'] ?? '' );
+
+        $status = ! empty( $row['status'] ) ? sanitize_text_field( $row['status'] ) : 'draft';
 
         // 1) CPT type
         $mapper    = new WR_CPT_Mapper();
@@ -174,27 +179,58 @@ class WR_CPT_Import_Runner {
         }
 
         // 2) Slug override
-        $post_slug = ! empty( $row['slug'] ) ? sanitize_title( $row['slug'] ) : sanitize_title( $row['product_title'] );
+        $post_slug = ! empty( $row['slug'] ) ? sanitize_title( $row['slug'] ) : sanitize_title( $title );
 
         // 3) Construct content (without inline featured image)
-        $content = $this->build_content( $row );
-
-        // 4) Insert post
-        $post_id = wp_insert_post( [
-            'post_type'    => $post_type,
-            'post_title'   => sanitize_text_field( $row['product_title'] ),
-            'post_content' => $content,
-            'post_status'  => 'draft',
-            'post_name'    => $post_slug,
+        $content = $this->build_content( [
+            'product_description'    => $description,
+            'audio_shorth_code'      => $audio_shortcode,
+            'pdf_player_shorth_code' => $pdf_shortcode,
         ] );
 
-        if ( is_wp_error( $post_id ) ) {
-            return [ 'error' => $post_id->get_error_message() ];
+        // 4) Insert or update post if group_id exists
+        $existing = get_posts( [
+            'post_type'      => $post_type,
+            'posts_per_page' => 1,
+            'meta_key'       => 'group_id',
+            'meta_value'     => $group_id,
+        ] );
+
+        if ( $existing ) {
+            $post_id = $existing[0]->ID;
+
+            $update_result = wp_update_post( [
+                'ID'           => $post_id,
+                'post_title'   => $title,
+                'post_content' => $content,
+                'post_status'  => $status,
+            ], true );
+
+            if ( is_wp_error( $update_result ) ) {
+                return [ 'error' => $update_result->get_error_message() ];
+            }
+        } else {
+            $post_id = wp_insert_post( [
+                'post_type'    => $post_type,
+                'post_title'   => $title,
+                'post_content' => $content,
+                'post_status'  => $status,
+                'post_name'    => $post_slug,
+            ], true );
+
+            if ( is_wp_error( $post_id ) ) {
+                return [ 'error' => $post_id->get_error_message() ];
+            }
         }
 
-        // 5) Featured image
-        if ( ! empty( $row['_image_id'] ) ) {
-            set_post_thumbnail( $post_id, intval( $row['_image_id'] ) );
+        // 5) Featured image download & attach
+        if ( ! empty( $row['product_image'] ) ) {
+            $image_url = esc_url_raw( $row['product_image'] );
+            $image_id  = media_sideload_image( $image_url, $post_id, null, 'id' );
+
+            if ( ! is_wp_error( $image_id ) ) {
+                set_post_thumbnail( $post_id, $image_id );
+            }
         }
 
         // 6) Taxonomies
@@ -203,13 +239,13 @@ class WR_CPT_Import_Runner {
         }
 
         // 7) Meta fields
-        update_post_meta( $post_id, 'group_id', $row['group_id'] );
+        update_post_meta( $post_id, 'group_id', $group_id );
         update_post_meta( $post_id, 'buy_link', $row['buy_link'] );
 
         // RankMath fields
-        update_post_meta( $post_id, 'rank_math_title', $row['seo_title'] );
-        update_post_meta( $post_id, 'rank_math_description', $row['short_description'] );
-        update_post_meta( $post_id, 'rank_math_focus_keyword', $row['focus_keyword'] );
+        update_post_meta( $post_id, 'rank_math_focus_keyword', $focus_keyword );
+        update_post_meta( $post_id, 'rank_math_title', $seo_title );
+        update_post_meta( $post_id, 'rank_math_description', $seo_desc );
 
         return [
             'success' => true,
