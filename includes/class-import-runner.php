@@ -44,6 +44,32 @@ class WR_CPT_Import_Runner {
 
                     $row['post_type'] = $post_type;
 
+                    $taxonomy = $mapper->get_taxonomy_for_post_type( $post_type );
+
+                    if ( $taxonomy ) {
+
+                        // Parent category
+                        $parent_term_id = $mapper->get_or_create_parent_term(
+                            $taxonomy,
+                            trim( $row['parent_category'] )
+                        );
+
+                        // Subcategory
+                        $child_term_id = $mapper->get_or_create_child_term(
+                            $taxonomy,
+                            $parent_term_id,
+                            trim( $row['subcategory'] )
+                        );
+
+                        $terms_to_assign = [];
+
+                        if ( $parent_term_id ) { $terms_to_assign[] = intval( $parent_term_id ); }
+                        if ( $child_term_id )  { $terms_to_assign[] = intval( $child_term_id ); }
+
+                        // Kaydetmeye hazırlıyoruz
+                        $row['_taxonomy_terms'] = $terms_to_assign;
+                    }
+
                     $rows[] = $row;
                 }
 

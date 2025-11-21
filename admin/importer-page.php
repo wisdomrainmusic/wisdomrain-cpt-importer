@@ -25,6 +25,22 @@ if ( isset( $_POST['wr_cpt_importer_nonce'] ) ) {
                 echo '<div class="notice notice-error"><p><strong>CSV ERROR:</strong> ' . esc_html( $result['error'] ) . '</p></div>';
             } else {
                 echo '<div class="notice notice-success"><p>CSV Loaded: ' . esc_html( $result['total'] ) . ' rows found.</p></div>';
+
+                if ( ! empty( $result['rows'] ) ) {
+                    $mapper = new WR_CPT_Mapper();
+
+                    foreach ( $result['rows'] as $row ) {
+                        $post_type = isset( $row['post_type'] ) ? $row['post_type'] : $mapper->resolve_post_type( $row['cpt_taxonomy'] );
+                        $taxonomy  = $mapper->get_taxonomy_for_post_type( $post_type );
+
+                        echo '<div class="notice notice-success"><p>';
+                        echo 'Detected CPT: <strong>' . esc_html( $post_type ) . '</strong><br>';
+                        echo 'Taxonomy: <strong>' . esc_html( $taxonomy ) . '</strong><br>';
+                        echo 'Parent: ' . esc_html( $row['parent_category'] ) . '<br>';
+                        echo 'Subcategory: ' . esc_html( $row['subcategory'] ) . '<br>';
+                        echo '</p></div>';
+                    }
+                }
             }
         }
     }
