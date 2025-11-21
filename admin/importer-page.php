@@ -27,18 +27,21 @@ if ( isset( $_POST['wr_cpt_importer_nonce'] ) ) {
                 echo '<div class="notice notice-success"><p>CSV Loaded: ' . esc_html( $result['total'] ) . ' rows found.</p></div>';
 
                 if ( ! empty( $result['rows'] ) ) {
-                    $mapper = new WR_CPT_Mapper();
+                    $image_handler = new WR_CPT_Image_Handler();
 
                     foreach ( $result['rows'] as $row ) {
-                        $post_type = isset( $row['post_type'] ) ? $row['post_type'] : $mapper->resolve_post_type( $row['cpt_taxonomy'] );
-                        $taxonomy  = $mapper->get_taxonomy_for_post_type( $post_type );
 
-                        echo '<div class="notice notice-success"><p>';
-                        echo 'Detected CPT: <strong>' . esc_html( $post_type ) . '</strong><br>';
-                        echo 'Taxonomy: <strong>' . esc_html( $taxonomy ) . '</strong><br>';
-                        echo 'Parent: ' . esc_html( $row['parent_category'] ) . '<br>';
-                        echo 'Subcategory: ' . esc_html( $row['subcategory'] ) . '<br>';
-                        echo '</p></div>';
+                        // 1) Image download (from previous commit)
+                        $row['_image_id'] = $image_handler->download_and_attach( trim( $row['product_image'] ), 0 );
+
+                        // 2) Taxonomy + content + post insert
+                        $created = $runner->create_post_from_row( $row );
+
+                        if ( ! empty( $created['error'] ) ) {
+                            echo '<div class="notice notice-error"><p>Error: ' . esc_html( $created['error'] ) . '</p></div>';
+                        } else {
+                            echo '<div class="notice notice-success"><p>Post Created: ID #' . intval( $created['post_id'] ) . '</p></div>';
+                        }
                     }
                 }
             }
