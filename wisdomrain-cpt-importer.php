@@ -20,5 +20,22 @@ define( 'WR_CPT_IMPORTER_PATH', plugin_dir_path( WR_CPT_IMPORTER_FILE ) );
 require_once WR_CPT_IMPORTER_PATH . 'includes/autoloader.php';
 require_once WR_CPT_IMPORTER_PATH . 'includes/Plugin.php';
 
+if ( ! function_exists( 'wr_clean' ) ) {
+    /**
+     * Clean CSV-derived values.
+     *
+     * @param mixed $value Raw value from CSV.
+     *
+     * @return string Sanitized string value.
+     */
+    function wr_clean( $value ) {
+        if ( ! $value ) {
+            return '';
+        }
+
+        return trim( wp_kses_post( $value ) );
+    }
+}
+
 // Initialize plugin.
 \WisdomRain\CptImporter\Plugin::init();

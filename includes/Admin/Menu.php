@@ -28,19 +28,19 @@ class Menu {
         $slug       = 'wr-cpt-importer';
 
         add_menu_page(
-            __( 'WisdomRain', 'wisdomrain-cpt-importer' ),
-            __( 'WisdomRain', 'wisdomrain-cpt-importer' ),
+            __( 'WR CPT Importer', 'wisdomrain-cpt-importer' ),
+            __( 'WR CPT Importer', 'wisdomrain-cpt-importer' ),
             $capability,
             $slug,
             [ $this, 'render_page' ],
-            'dashicons-cloud-upload',
-            56
+            'dashicons-database-import',
+            25
         );
 
         add_submenu_page(
             $slug,
-            __( 'CPT Importer', 'wisdomrain-cpt-importer' ),
-            __( 'CPT Importer', 'wisdomrain-cpt-importer' ),
+            __( 'WR CPT Importer', 'wisdomrain-cpt-importer' ),
+            __( 'WR CPT Importer', 'wisdomrain-cpt-importer' ),
             $capability,
             $slug,
             [ $this, 'render_page' ]
