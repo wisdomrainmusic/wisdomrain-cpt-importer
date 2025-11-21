@@ -120,26 +120,39 @@ class WR_CPT_Import_Runner {
             'product_title'        => '',
             'product_description'  => '',
             'audio_shorth_code'    => '',
-            'pdf_player_shortcode' => '',
+            'pdf_player_shorth_code' => '',
         ];
 
         $row = wp_parse_args( $row, $defaults );
 
+        // ---------------------------
+        // CONTENT BUILDER (FINAL V2)
+        // ---------------------------
+
         $content  = '';
 
-        $content .= '<h1>' . esc_html( $row['product_title'] ) . '</h1>' . "\n\n";
+        // Title (WordPress zaten title olarak kaydediyor, o yüzden sadece içerik istiyorsak kapatabiliriz)
+        // $content .= '<h1>' . esc_html($row['product_title']) . '</h1>' . "\n\n";
 
-        // Description
-        $content .= wp_kses_post( $row['product_description'] ) . "\n\n";
+        // Product Description
+        if ( ! empty( $row['product_description'] ) ) {
+            $content .= wp_kses_post( $row['product_description'] ) . "\n\n";
+        }
 
-        // AUDIO SHORTCODE
+        // Spacing before players (prevent overlay under featured image)
+        $content .= "<div style='margin-top:60px'></div>\n\n";
+
+        // AUDIO PLAYER SHORTCODE
         if ( ! empty( $row['audio_shorth_code'] ) ) {
             $content .= trim( $row['audio_shorth_code'] ) . "\n\n";
         }
 
-        // PDF SHORTCODE
-        if ( ! empty( $row['pdf_player_shortcode'] ) ) {
-            $content .= trim( $row['pdf_player_shortcode'] ) . "\n\n";
+        // Extra spacing before PDF player
+        $content .= "<div style='margin-top:40px'></div>\n\n";
+
+        // PDF PLAYER SHORTCODE – ✔ DOĞRU CSV KEY
+        if ( ! empty( $row['pdf_player_shorth_code'] ) ) {
+            $content .= trim( $row['pdf_player_shorth_code'] ) . "\n\n";
         }
 
         return $content;
