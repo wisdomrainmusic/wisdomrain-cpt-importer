@@ -4,6 +4,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+require_once WR_CPT_IMPORTER_PATH . 'includes/class-taxonomy-mapper.php';
+
 class WR_CPT_Import_Runner {
     public function parse_csv( $file_path ) {
 
@@ -13,6 +15,8 @@ class WR_CPT_Import_Runner {
 
         $rows   = [];
         $header = [];
+
+        $mapper = new WR_CPT_Mapper();
 
         if ( ( $handle = fopen( $file_path, 'r' ) ) !== false ) {
 
@@ -30,7 +34,17 @@ class WR_CPT_Import_Runner {
                         continue;
                     }
 
-                    $rows[] = array_combine( $header, $data );
+                    $row = array_combine( $header, $data );
+
+                    $post_type = $mapper->resolve_post_type( $row['cpt_taxonomy'] );
+
+                    if ( ! $post_type ) {
+                        return [ 'error' => 'Unknown CPT Taxonomy: ' . $row['cpt_taxonomy'] ];
+                    }
+
+                    $row['post_type'] = $post_type;
+
+                    $rows[] = $row;
                 }
 
                 $line_number++;
