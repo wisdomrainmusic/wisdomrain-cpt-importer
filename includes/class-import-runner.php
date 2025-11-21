@@ -147,4 +147,73 @@ class WR_CPT_Import_Runner {
 
         return $content;
     }
+
+    /**
+     * Create a new post from a prepared CSV row.
+     */
+    public function create_post_from_row( $row ) {
+
+        // 1) CPT type
+        $mapper    = new WR_CPT_Mapper();
+        $post_type = $mapper->resolve_post_type( $row['cpt_taxonomy'] );
+
+        if ( ! $post_type ) {
+            return [ 'error' => 'Unknown CPT type: ' . $row['cpt_taxonomy'] ];
+        }
+
+        // 2) Slug override
+        $post_slug = ! empty( $row['slug'] ) ? sanitize_title( $row['slug'] ) : sanitize_title( $row['product_title'] );
+
+        // 3) Construct content (with featured image HTML)
+        $image_html = '';
+        if ( ! empty( $row['_image_id'] ) ) {
+            $image_html = wp_get_attachment_image( $row['_image_id'], 'large', false, [
+                'class' => 'wr-cover-image',
+            ] );
+        }
+
+        $content  = '';
+        $content .= '<h1>' . esc_html( $row['product_title'] ) . '</h1>' . "\n\n";
+        $content .= $image_html . "\n\n";
+        $content .= wp_kses_post( $row['product_description'] ) . "\n\n";
+        $content .= $row['audio_shorth_code'] . "\n\n";
+        $content .= $row['pdf_player_shortcode'] . "\n\n";
+
+        // 4) Insert post
+        $post_id = wp_insert_post( [
+            'post_type'    => $post_type,
+            'post_title'   => sanitize_text_field( $row['product_title'] ),
+            'post_content' => $content,
+            'post_status'  => 'draft',
+            'post_name'    => $post_slug,
+        ] );
+
+        if ( is_wp_error( $post_id ) ) {
+            return [ 'error' => $post_id->get_error_message() ];
+        }
+
+        // 5) Featured image
+        if ( ! empty( $row['_image_id'] ) ) {
+            set_post_thumbnail( $post_id, intval( $row['_image_id'] ) );
+        }
+
+        // 6) Taxonomies
+        if ( ! empty( $row['_taxonomy_terms'] ) ) {
+            wp_set_object_terms( $post_id, $row['_taxonomy_terms'], $mapper->get_taxonomy_for_post_type( $post_type ) );
+        }
+
+        // 7) Meta fields
+        update_post_meta( $post_id, 'group_id', $row['group_id'] );
+        update_post_meta( $post_id, 'buy_link', $row['buy_link'] );
+
+        // RankMath fields
+        update_post_meta( $post_id, 'rank_math_title', $row['seo_title'] );
+        update_post_meta( $post_id, 'rank_math_description', $row['short_description'] );
+        update_post_meta( $post_id, 'rank_math_focus_keyword', $row['focus_keyword'] );
+
+        return [
+            'success' => true,
+            'post_id' => $post_id,
+        ];
+    }
 }
